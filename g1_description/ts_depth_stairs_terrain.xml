@@ -1,0 +1,30 @@
+<mujoco model="g1 ts-depth stairs terrain">
+  <worldbody>
+    <!-- Same stair layout as go2_description/scene.xml:
+         10 up + 6-tread platform + 10 down; tread 0.3375 m, width 6.0 m, riser 0.20 m. -->
+    <geom name="step1"  type="box" size="0.16875 3.0 0.10" pos="2.0000 0 0.10" group="0"/>
+    <geom name="step2"  type="box" size="0.16875 3.0 0.10" pos="2.3375 0 0.30" group="0"/>
+    <geom name="step3"  type="box" size="0.16875 3.0 0.10" pos="2.6750 0 0.50" group="0"/>
+    <geom name="step4"  type="box" size="0.16875 3.0 0.10" pos="3.0125 0 0.70" group="0"/>
+    <geom name="step5"  type="box" size="0.16875 3.0 0.10" pos="3.3500 0 0.90" group="0"/>
+    <geom name="step6"  type="box" size="0.16875 3.0 0.10" pos="3.6875 0 1.10" group="0"/>
+    <geom name="step7"  type="box" size="0.16875 3.0 0.10" pos="4.0250 0 1.30" group="0"/>
+    <geom name="step8"  type="box" size="0.16875 3.0 0.10" pos="4.3625 0 1.50" group="0"/>
+    <geom name="step9"  type="box" size="0.16875 3.0 0.10" pos="4.7000 0 1.70" group="0"/>
+    <geom name="step10" type="box" size="0.16875 3.0 0.10" pos="5.0375 0 1.90" group="0"/>
+    <geom name="step11" type="box" size="0.16875 3.0 0.10" pos="5.3750 0 1.90" group="0"/>
+    <geom name="step12" type="box" size="0.16875 3.0 0.10" pos="5.7125 0 1.90" group="0"/>
+    <geom name="step13" type="box" size="0.16875 3.0 0.10" pos="6.0500 0 1.90" group="0"/>
+    <geom name="step14" type="box" size="0.16875 3.0 0.10" pos="6.3875 0 1.90" group="0"/>
+    <geom name="step15" type="box" size="0.16875 3.0 0.10" pos="6.7250 0 1.90" group="0"/>
+    <geom name="step16" type="box" size="0.16875 3.0 0.10" pos="7.0625 0 1.70" group="0"/>
+    <geom name="step17" type="box" size="0.16875 3.0 0.10" pos="7.4000 0 1.50" group="0"/>
+    <geom name="step18" type="box" size="0.16875 3.0 0.10" pos="7.7375 0 1.30" group="0"/>
+    <geom name="step19" type="box" size="0.16875 3.0 0.10" pos="8.0750 0 1.10" group="0"/>
+    <geom name="step20" type="box" size="0.16875 3.0 0.10" pos="8.4125 0 0.90" group="0"/>
+    <geom name="step21" type="box" size="0.16875 3.0 0.10" pos="8.7500 0 0.70" group="0"/>
+    <geom name="step22" type="box" size="0.16875 3.0 0.10" pos="9.0875 0 0.50" group="0"/>
+    <geom name="step23" type="box" size="0.16875 3.0 0.10" pos="9.4250 0 0.30" group="0"/>
+    <geom name="step24" type="box" size="0.16875 3.0 0.10" pos="9.7625 0 0.10" group="0"/>
+  </worldbody>
+</mujoco>

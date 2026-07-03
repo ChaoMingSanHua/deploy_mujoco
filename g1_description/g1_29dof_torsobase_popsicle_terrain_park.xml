@@ -1,0 +1,10 @@
+<mujoco model="g1_29dof_torsobase_popsicle_terrain_park">
+  <include file="g1_29dof_torsobase_popsicle.xml"/>
+  <default>
+    <geom group="0"/>
+  </default>
+  <worldbody>
+    <geom name="pit_floor" pos="0 0 -0.65" size="0 0 0.05" type="plane" group="0"/>
+  </worldbody>
+  <include file="terrain_park.xml"/>
+</mujoco>

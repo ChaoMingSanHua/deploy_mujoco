@@ -1,0 +1,96 @@
+<mujoco model="terrain_park_depth_local">
+  <asset>
+    <material name="flat_mat" rgba="0.34 0.43 0.58 1" />
+    <material name="rough_mat" rgba="0.26 0.36 0.52 1" />
+    <material name="gap_mat" rgba="0.20 0.28 0.42 1" />
+    <material name="stair_mat" rgba="0.40 0.50 0.66 1" />
+    <material name="box_mat" rgba="0.30 0.38 0.54 1" />
+    <material name="slope_mat" rgba="0.78 0.84 0.76 1" />
+    <material name="stone_mat" rgba="0.78 0.80 0.86 1" />
+    <material name="beam_mat" rgba="0.84 0.78 0.70 1" />
+    <material name="bridge_mat" rgba="0.86 0.74 0.58 1" />
+  </asset>
+  <worldbody>
+    <geom name="start_pad" type="box" pos="0.000 0.000 -0.030" size="1.80 10.00 0.030" material="flat_mat" />
+    <geom name="warmup_rough_00" type="box" pos="-1.250 -1.050 0.012" size="0.28 0.28 0.012" material="rough_mat" />
+    <geom name="warmup_rough_01" type="box" pos="-0.650 -1.050 0.027" size="0.28 0.28 0.027" material="rough_mat" />
+    <geom name="warmup_rough_02" type="box" pos="-0.050 -1.050 0.018" size="0.28 0.28 0.018" material="rough_mat" />
+    <geom name="warmup_rough_03" type="box" pos="0.550 -1.050 0.036" size="0.28 0.28 0.036" material="rough_mat" />
+    <geom name="warmup_rough_04" type="box" pos="1.150 -1.050 0.021" size="0.28 0.28 0.021" material="rough_mat" />
+    <geom name="warmup_rough_05" type="box" pos="-1.250 1.050 0.030" size="0.28 0.28 0.030" material="rough_mat" />
+    <geom name="warmup_rough_06" type="box" pos="-0.650 1.050 0.014" size="0.28 0.28 0.014" material="rough_mat" />
+    <geom name="warmup_rough_07" type="box" pos="-0.050 1.050 0.039" size="0.28 0.28 0.039" material="rough_mat" />
+    <geom name="warmup_rough_08" type="box" pos="0.550 1.050 0.022" size="0.28 0.28 0.022" material="rough_mat" />
+    <geom name="warmup_rough_09" type="box" pos="1.150 1.050 0.033" size="0.28 0.28 0.033" material="rough_mat" />
+    <geom name="warmup_rough_10" type="box" pos="-1.250 -3.500 0.026" size="0.40 0.55 0.026" material="rough_mat" />
+    <geom name="warmup_rough_11" type="box" pos="-0.200 -3.500 0.041" size="0.40 0.55 0.041" material="rough_mat" />
+    <geom name="warmup_rough_12" type="box" pos="0.850 -3.500 0.031" size="0.40 0.55 0.031" material="rough_mat" />
+    <geom name="warmup_rough_13" type="box" pos="-1.250 3.500 0.037" size="0.40 0.55 0.037" material="rough_mat" />
+    <geom name="warmup_rough_14" type="box" pos="-0.200 3.500 0.020" size="0.40 0.55 0.020" material="rough_mat" />
+    <geom name="warmup_rough_15" type="box" pos="0.850 3.500 0.044" size="0.40 0.55 0.044" material="rough_mat" />
+    <geom name="warmup_rough_16" type="box" pos="-0.950 -7.250 0.035" size="0.55 0.70 0.035" material="rough_mat" />
+    <geom name="warmup_rough_17" type="box" pos="0.550 -7.250 0.023" size="0.55 0.70 0.023" material="rough_mat" />
+    <geom name="warmup_rough_18" type="box" pos="-0.950 7.250 0.018" size="0.55 0.70 0.018" material="rough_mat" />
+    <geom name="warmup_rough_19" type="box" pos="0.550 7.250 0.039" size="0.55 0.70 0.039" material="rough_mat" />
+    <geom name="stairs_up_01" type="box" pos="7.800 0.000 0.066" size="0.15 10.00 0.066" material="stair_mat" />
+    <geom name="stairs_up_02" type="box" pos="8.100 0.000 0.132" size="0.15 10.00 0.132" material="stair_mat" />
+    <geom name="stairs_up_03" type="box" pos="8.400 0.000 0.198" size="0.15 10.00 0.198" material="stair_mat" />
+    <geom name="stairs_up_04" type="box" pos="8.700 0.000 0.264" size="0.15 10.00 0.264" material="stair_mat" />
+    <geom name="stairs_up_05" type="box" pos="9.000 0.000 0.330" size="0.15 10.00 0.330" material="stair_mat" />
+    <geom name="stairs_platform" type="box" pos="9.900 0.000 0.330" size="0.75 10.00 0.330" material="stair_mat" />
+    <geom name="stairs_dn_01" type="box" pos="10.800 0.000 0.330" size="0.15 10.00 0.330" material="stair_mat" />
+    <geom name="stairs_dn_02" type="box" pos="11.100 0.000 0.264" size="0.15 10.00 0.264" material="stair_mat" />
+    <geom name="stairs_dn_03" type="box" pos="11.400 0.000 0.198" size="0.15 10.00 0.198" material="stair_mat" />
+    <geom name="stairs_dn_04" type="box" pos="11.700 0.000 0.132" size="0.15 10.00 0.132" material="stair_mat" />
+    <geom name="stairs_dn_05" type="box" pos="12.000 0.000 0.066" size="0.15 10.00 0.066" material="stair_mat" />
+    <geom name="boxes_floor" type="box" pos="15.950 0.000 -0.0300" size="1.25 10.00 0.030" material="flat_mat" />
+    <geom name="box_obs_00" type="box" pos="15.300 -0.580 0.0223" size="0.240 0.250 0.0223" material="box_mat" />
+    <geom name="box_obs_01" type="box" pos="15.750 0.520 0.0348" size="0.280 0.240 0.0348" material="box_mat" />
+    <geom name="box_obs_02" type="box" pos="16.150 -0.440 0.0294" size="0.260 0.280 0.0294" material="box_mat" />
+    <geom name="box_obs_03" type="box" pos="16.600 0.560 0.0385" size="0.280 0.250 0.0385" material="box_mat" />
+    <geom name="box_obs_04" type="box" pos="15.200 -3.100 0.0259" size="0.300 0.360 0.0259" material="box_mat" />
+    <geom name="box_obs_05" type="box" pos="15.850 -4.800 0.0375" size="0.320 0.380 0.0375" material="box_mat" />
+    <geom name="box_obs_06" type="box" pos="16.550 -2.150 0.0322" size="0.280 0.340 0.0322" material="box_mat" />
+    <geom name="box_obs_07" type="box" pos="15.350 3.300 0.0385" size="0.340 0.360 0.0385" material="box_mat" />
+    <geom name="box_obs_08" type="box" pos="16.100 5.100 0.0294" size="0.300 0.380 0.0294" material="box_mat" />
+    <geom name="box_obs_09" type="box" pos="16.700 2.200 0.0366" size="0.320 0.320 0.0366" material="box_mat" />
+    <geom name="box_obs_10" type="box" pos="15.600 -7.100 0.0339" size="0.400 0.500 0.0339" material="box_mat" />
+    <geom name="box_obs_11" type="box" pos="16.350 7.000 0.0385" size="0.420 0.480 0.0385" material="box_mat" />
+    <geom name="post_boxes_pad" type="box" pos="17.300 0.000 -0.030" size="3.20 10.00 0.030" material="flat_mat" />
+    <geom name="finish_pad" type="box" pos="21.100 0.000 -0.030" size="1.25 10.00 0.030" material="flat_mat" />
+    <geom name="extension_flat_00" type="box" pos="24.800 0.000 -0.030" size="2.40 10.00 0.030" material="flat_mat" />
+    <geom name="extension_rough_00" type="box" pos="24.000 -6.500 0.032" size="0.70 0.90 0.032" material="rough_mat" />
+    <geom name="extension_rough_01" type="box" pos="25.600 -3.200 0.044" size="0.70 0.90 0.044" material="rough_mat" />
+    <geom name="extension_rough_02" type="box" pos="24.800 3.400 0.028" size="0.70 0.90 0.028" material="rough_mat" />
+    <geom name="extension_rough_03" type="box" pos="26.200 7.300 0.039" size="0.70 0.90 0.039" material="rough_mat" />
+    <geom name="extension_boxes_floor" type="box" pos="34.400 0.000 -0.030" size="2.00 10.00 0.030" material="flat_mat" />
+    <geom name="extension_box_00" type="box" pos="33.400 -5.800 0.0304" size="0.340 0.420 0.0304" material="box_mat" />
+    <geom name="extension_box_01" type="box" pos="34.150 -1.000 0.0385" size="0.360 0.400 0.0385" material="box_mat" />
+    <geom name="extension_box_02" type="box" pos="35.100 3.700 0.0339" size="0.360 0.420 0.0339" material="box_mat" />
+    <geom name="extension_box_03" type="box" pos="35.750 7.200 0.0385" size="0.420 0.480 0.0385" material="box_mat" />
+    <geom name="extension_gap_00" type="box" pos="28.200 0.000 -0.0350" size="0.550 10.000 0.0350" material="gap_mat" />
+    <geom name="extension_gap_01" type="box" pos="29.250 0.000 -0.0350" size="0.450 10.000 0.0350" material="gap_mat" />
+    <geom name="extension_gap_02" type="box" pos="30.250 0.000 -0.0350" size="0.550 10.000 0.0350" material="gap_mat" />
+    <geom name="extension_gap_03" type="box" pos="31.350 0.000 -0.0350" size="0.500 10.000 0.0350" material="gap_mat" />
+    <geom name="extra_flat_before_stairs" type="box" pos="4.600 0.000 -0.0300" size="3.050 10.000 0.0300" material="flat_mat" />
+    <geom name="extra_flat_after_stairs" type="box" pos="13.425 0.000 -0.0300" size="1.275 10.000 0.0300" material="flat_mat" />
+    <geom name="extra_low_box_00" type="box" pos="15.050 -1.200 0.0550" size="0.200 0.220 0.0550" material="box_mat" />
+    <geom name="extra_low_box_01" type="box" pos="15.450 0.100 0.0650" size="0.200 0.200 0.0650" material="box_mat" />
+    <geom name="extra_low_box_02" type="box" pos="15.800 -0.950 0.0500" size="0.220 0.200 0.0500" material="box_mat" />
+    <geom name="extra_low_box_03" type="box" pos="16.200 0.850 0.0600" size="0.200 0.220 0.0600" material="box_mat" />
+    <geom name="extra_low_box_04" type="box" pos="16.550 -0.100 0.0550" size="0.220 0.200 0.0550" material="box_mat" />
+    <geom name="extra_low_box_05" type="box" pos="16.950 1.050 0.0650" size="0.200 0.200 0.0650" material="box_mat" />
+    <geom name="extra_low_box_06" type="box" pos="33.050 -2.300 0.0600" size="0.240 0.260 0.0600" material="box_mat" />
+    <geom name="extra_low_box_07" type="box" pos="33.650 1.700 0.0500" size="0.220 0.240 0.0500" material="box_mat" />
+    <geom name="extra_low_box_08" type="box" pos="34.350 -3.600 0.0650" size="0.240 0.260 0.0650" material="box_mat" />
+    <geom name="extra_low_box_09" type="box" pos="35.050 2.400 0.0550" size="0.220 0.240 0.0550" material="box_mat" />
+    <geom name="extra_beam_00" type="box" pos="38.200 -5.500 0.0750" size="1.350 0.080 0.0750" material="beam_mat" />
+    <geom name="extra_beam_01" type="box" pos="38.200 0.000 0.0750" size="1.350 0.080 0.0750" material="beam_mat" />
+    <geom name="extra_beam_02" type="box" pos="38.200 5.500 0.0750" size="1.350 0.080 0.0750" material="beam_mat" />
+    <geom name="extra_late_gap_platform_00" type="box" pos="37.000 0.000 -0.0350" size="0.450 10.000 0.0350" material="gap_mat" />
+    <geom name="extra_late_gap_platform_01" type="box" pos="38.100 0.000 -0.0350" size="0.400 10.000 0.0350" material="gap_mat" />
+    <geom name="extra_late_gap_platform_02" type="box" pos="39.200 0.000 -0.0350" size="0.450 10.000 0.0350" material="gap_mat" />
+    <geom name="extra_late_gap_platform_03" type="box" pos="40.350 0.000 -0.0350" size="0.500 10.000 0.0350" material="gap_mat" />
+    <geom name="extra_final_pad" type="box" pos="42.700 0.000 -0.0300" size="1.800 10.000 0.0300" material="flat_mat" />
+  </worldbody>
+</mujoco>

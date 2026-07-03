@@ -1,0 +1,87 @@
+xml_path: "g1_description/g1_29dof_rev_1_0_right_paddle.xml"
+policy_path: "policy/policy_tt.pt"
+
+simulation_duration: 1000.0
+simulation_dt: 0.001
+control_decimation: 20
+
+joint_names: [
+  "left_hip_pitch_joint", "left_hip_roll_joint", "left_hip_yaw_joint",
+  "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+  "right_hip_pitch_joint", "right_hip_roll_joint", "right_hip_yaw_joint",
+  "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint",
+  "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
+  "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
+  "left_elbow_joint", "left_wrist_roll_joint", "left_wrist_pitch_joint", "left_wrist_yaw_joint",
+  "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint",
+  "right_elbow_joint", "right_wrist_roll_joint", "right_wrist_pitch_joint", "right_wrist_yaw_joint",
+]
+
+kps: [
+  100.0, 100.0, 100.0, 150.0, 40.0, 40.0,
+  100.0, 100.0, 100.0, 150.0, 40.0, 40.0,
+  200.0, 40.0, 40.0,
+  40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0,
+  40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0,
+]
+
+kds: [
+  2.0, 2.0, 2.0, 4.0, 2.0, 2.0,
+  2.0, 2.0, 2.0, 4.0, 2.0, 2.0,
+  5.0, 5.0, 5.0,
+  1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+  1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+]
+
+default_joint_pos: [
+  -0.1, 0.0, 0.0, 0.3, -0.2, 0.0,
+  -0.1, 0.0, 0.0, 0.3, -0.2, 0.0,
+  0.0, 0.0, 0.0,
+  0.3, 0.25, 0.0, 0.0, 0.15, 0.0, 0.0,
+  0.3, -0.25, 0.0, 0.0, -0.15, 0.0, 0.0,
+]
+
+history_length: 5
+num_actions: 29
+frame_obs_dim: 104
+action_scale: 0.25
+obs_clip: 100.0
+action_clip: 100.0
+
+robot_pos: [-2.0, 0.0, 0.80]
+
+# Set to null for randomized serves matching deploy_isaaclab_g1_hitter.py.
+ball_velocity: null
+ball_pos_offset: null
+ball_base_pos: [1.35, 0.0, 1.03]
+ball_pos_offset_ranges: [[-0.10, 0.05], [-0.20, 0.20], [-0.05, 0.05]]
+ball_velocity_ranges: [[-7.0, -5.2], [-0.8, 0.8], [1.2, 2.1]]
+ball_max_episode_length: 1.88
+serve_delay: 0.5
+
+gravity: [0.0, 0.0, -9.81]
+air_density: 1.225
+ball_drag_coefficient: 0.47
+ball_drag_radius: 0.02
+ball_drag_mass: 0.0034
+
+hitter_hit_plane_x: -1.37
+hitter_table_z: 0.78
+table_x_range: [-1.37, 1.37]
+table_y_range: [-0.7625, 0.7625]
+hitter_plan_dt: 0.01
+hitter_plan_steps: 120
+hitter_landing_pos: [1.15, 0.0, 0.78]
+hitter_post_hit_flight_time: 0.55
+hitter_racket_restitution: 0.8
+hitter_bounce_restitution_xy: 0.9
+hitter_bounce_restitution_z: 0.9
+hitter_base_target_offset: [-0.10, 0.60, 0.0]
+hitter_valid_strike_z_range: [0.65, 1.6]
+
+future_body_height: 0.78
+future_paddle_y_offset: -0.60
+fallback_racket_height_offset: 0.20
+default_robot_future_pos: [-1.80, 0.0, 0.78]
+
+no_realtime: false

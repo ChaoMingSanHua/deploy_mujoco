@@ -1,0 +1,52 @@
+<mujoco model="stairs_terrain">
+  <!--
+    Stair terrain for sim2sim testing.
+    Include this file from a robot XML via <include file="stairs_terrain.xml"/>
+    or load the combined scene XML directly.
+
+    Layout (looking down +X axis):
+      flat ground → stairs up (10 steps) → platform → stairs down (10 steps) → flat ground
+    Total length ≈ 10m, centred at x=5.
+  -->
+
+  <asset>
+    <material name="stair_mat"  rgba="0.55 0.55 0.52 1"/>
+    <material name="platform_mat" rgba="0.45 0.45 0.42 1"/>
+  </asset>
+
+  <worldbody>
+    <!-- ====== Staircase (centred along +X, width 2.0 m along Y) ====== -->
+    <!-- Parameters matching DWAQ training terrain:
+         step_height = 0.15 m,  step_depth = 0.30 m,  width = 6.0 m
+         10 steps up  →  2.0 m platform  →  10 steps down
+    -->
+
+    <!-- Ascending stairs: step i at x = 1.5 + i*0.30, z = (i+1)*0.15/2 -->
+    <!-- Each box: size = (depth/2, width/2, height/2) -->
+    <geom group="0" name="stair_up_01" type="box" pos="1.50 0 0.075"  size="0.15 3.0 0.075"  material="stair_mat"/>
+    <geom group="0" name="stair_up_02" type="box" pos="1.80 0 0.150"  size="0.15 3.0 0.150"  material="stair_mat"/>
+    <geom group="0" name="stair_up_03" type="box" pos="2.10 0 0.225"  size="0.15 3.0 0.225"  material="stair_mat"/>
+    <geom group="0" name="stair_up_04" type="box" pos="2.40 0 0.300"  size="0.15 3.0 0.300"  material="stair_mat"/>
+    <geom group="0" name="stair_up_05" type="box" pos="2.70 0 0.375"  size="0.15 3.0 0.375"  material="stair_mat"/>
+    <geom group="0" name="stair_up_06" type="box" pos="3.00 0 0.450"  size="0.15 3.0 0.450"  material="stair_mat"/>
+    <geom group="0" name="stair_up_07" type="box" pos="3.30 0 0.525"  size="0.15 3.0 0.525"  material="stair_mat"/>
+    <geom group="0" name="stair_up_08" type="box" pos="3.60 0 0.600"  size="0.15 3.0 0.600"  material="stair_mat"/>
+    <geom group="0" name="stair_up_09" type="box" pos="3.90 0 0.675"  size="0.15 3.0 0.675"  material="stair_mat"/>
+    <geom group="0" name="stair_up_10" type="box" pos="4.20 0 0.750"  size="0.15 3.0 0.750"  material="stair_mat"/>
+
+    <!-- Top platform: 2.0 m long at height 1.50 m -->
+    <geom group="0" name="platform" type="box" pos="5.35 0 0.750" size="1.0 3.0 0.750" material="platform_mat"/>
+
+    <!-- Descending stairs (mirror of ascending) -->
+    <geom group="0" name="stair_dn_01" type="box" pos="6.50 0 0.750"  size="0.15 3.0 0.750"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_02" type="box" pos="6.80 0 0.675"  size="0.15 3.0 0.675"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_03" type="box" pos="7.10 0 0.600"  size="0.15 3.0 0.600"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_04" type="box" pos="7.40 0 0.525"  size="0.15 3.0 0.525"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_05" type="box" pos="7.70 0 0.450"  size="0.15 3.0 0.450"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_06" type="box" pos="8.00 0 0.375"  size="0.15 3.0 0.375"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_07" type="box" pos="8.30 0 0.300"  size="0.15 3.0 0.300"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_08" type="box" pos="8.60 0 0.225"  size="0.15 3.0 0.225"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_09" type="box" pos="8.90 0 0.150"  size="0.15 3.0 0.150"  material="stair_mat"/>
+    <geom group="0" name="stair_dn_10" type="box" pos="9.20 0 0.075"  size="0.15 3.0 0.075"  material="stair_mat"/>
+  </worldbody>
+</mujoco>

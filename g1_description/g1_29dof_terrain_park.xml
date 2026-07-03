@@ -1,0 +1,12 @@
+<mujoco model="g1_29dof_terrain_park">
+  <!--
+    G1 29-DOF robot in multi-terrain park.
+    Terrains around the origin:
+      +X : Stairs (up → platform → down)
+      -X : Slope ramps (up → flat → down)
+      +Y : Rough terrain (random-height blocks)
+      -Y : Stepping stones
+  -->
+  <include file="g1_29dof_rev_1_0.xml"/>
+  <include file="terrain_park.xml"/>
+</mujoco>
