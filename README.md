@@ -72,6 +72,12 @@ python deploy_mujoco.py \
   --xml-path g1_description/g1_29dof_torsobase_popsicle_with_shoe_terrain_park.xml
 ```
 
+Perceptive Vault VAE Distill:
+
+```bash
+python deploy_mujoco.py --config config/g1_perceptive_vault_vae_distill_sim2sim.yaml
+```
+
 Mimic:
 
 ```bash

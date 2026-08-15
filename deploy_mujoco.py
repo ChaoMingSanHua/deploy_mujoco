@@ -5,7 +5,6 @@ import argparse
 from deploy_mujoco_env import (
     DEFAULT_CONFIG,
     DEFAULT_FSM_CONFIG,
-    DEFAULT_XML,
     run_deploy,
 )
 
@@ -19,9 +18,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=str(DEFAULT_FSM_CONFIG),
         help="FSM config for mimic motion lookup",
     )
-    parser.add_argument("--xml-path", type=str, default=DEFAULT_XML)
-    parser.add_argument("--simulation-dt", type=float, default=0.001)
-    parser.add_argument("--simulation-duration", type=float, default=600.0)
+    parser.add_argument("--xml-path", type=str, default=None)
+    parser.add_argument("--simulation-dt", type=float, default=None)
+    parser.add_argument("--simulation-duration", type=float, default=None)
     parser.add_argument("--device", type=str, default="cpu", help="TorchScript device when exported/policy.pt is used")
     return parser
 

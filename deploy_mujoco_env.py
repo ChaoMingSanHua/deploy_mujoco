@@ -59,7 +59,7 @@ PROJ_ROOT = DEPLOY_ROOT / "config/g1_29dof"
 DEFAULT_CONFIG = "config/g1_29dof/config/policy/velocity/v0/params/deploy.yaml"
 DEFAULT_FSM_CONFIG = PROJ_ROOT / "config/config.yaml"
 DEFAULT_XML = "g1_description/g1_29dof_rev_1_0.xml"
-CMD_STEP = 0.1
+CMD_STEP = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +179,7 @@ class MotionLoader:
     def __init__(self, motion_file: Path, fps: float):
         self.dt = 1.0 / fps
         self.anchor_quaternions: np.ndarray | None = None
+        self.velocity_commands: np.ndarray | None = None
 
         if motion_file.suffix.lower() == NPZ_MOTION_SUFFIX:
             self._load_npz_motion(motion_file)
@@ -197,9 +198,11 @@ class MotionLoader:
 
         self.num_frames = rows.shape[0]
         self.duration = self.num_frames * self.dt
+        self.root_positions = rows[:, :3].astype(np.float32)
         self.root_quaternions = np.stack([rows[:, 6], rows[:, 3], rows[:, 4], rows[:, 5]], axis=1).astype(np.float32)
         self.dof_positions = rows[:, 7:].astype(np.float32)
         self.dof_velocities = self._finite_difference_vel(self.dof_positions)
+        self.root_lin_velocities = self._finite_difference_vel(self.root_positions)
 
     def _load_npz_motion(self, motion_file: Path) -> None:
         data = np.load(motion_file)
@@ -217,11 +220,32 @@ class MotionLoader:
             self.root_quaternions = body_quat[:, NPZ_PELVIS_BODY_INDEX]
             if body_quat.shape[1] > NPZ_TORSO_BODY_INDEX:
                 self.anchor_quaternions = body_quat[:, NPZ_TORSO_BODY_INDEX]
+        elif "base_quat_w" in data:
+            self.root_quaternions = data["base_quat_w"].astype(np.float32)
         else:
             self.root_quaternions = np.tile(
                 np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32),
                 (self.num_frames, 1),
             )
+        if "body_pos_w" in data:
+            body_pos = data["body_pos_w"].astype(np.float32)
+            self.root_positions = body_pos[:, NPZ_PELVIS_BODY_INDEX]
+        elif "base_pos_w" in data:
+            self.root_positions = data["base_pos_w"].astype(np.float32)
+        elif "root_pos" in data:
+            self.root_positions = data["root_pos"].astype(np.float32)
+        else:
+            self.root_positions = np.zeros((self.num_frames, 3), dtype=np.float32)
+        self.root_lin_velocities = (
+            data["body_lin_vel_w"][:, NPZ_PELVIS_BODY_INDEX].astype(np.float32)
+            if "body_lin_vel_w" in data
+            else self._finite_difference_vel(self.root_positions)
+        )
+        self.velocity_commands = (
+            data["velocity_command"].astype(np.float32)
+            if "velocity_command" in data
+            else None
+        )
 
     def _finite_difference_vel(self, positions: np.ndarray) -> np.ndarray:
         if positions.shape[0] <= 1:
@@ -232,13 +256,14 @@ class MotionLoader:
         return vel
 
     def update(self, time: float) -> None:
-        phase = float(np.clip(time / self.duration, 0.0, 1.0))
+        self.current_time = float(np.clip(time, 0.0, self.duration))
+        phase = float(np.clip(self.current_time / self.duration, 0.0, 1.0))
         self.index_0 = int(round(phase * (self.num_frames - 1)))
         self.index_1 = min(self.index_0 + 1, self.num_frames - 1)
         # ``round(phase * (n-1))`` and ``time / dt`` can disagree at segment starts
         # (e.g. time_start=2.8), yielding blend outside [0, 1] and breaking Slerp.
         self.blend = float(
-            np.clip(round((time - self.index_0 * self.dt) / self.dt * 1e5) / 1e5, 0.0, 1.0)
+            np.clip(round((self.current_time - self.index_0 * self.dt) / self.dt * 1e5) / 1e5, 0.0, 1.0)
         )
 
     def joint_pos(self) -> np.ndarray:
@@ -246,6 +271,23 @@ class MotionLoader:
 
     def joint_vel(self) -> np.ndarray:
         return self._interp_array(self.dof_velocities)
+
+    def root_position(self) -> np.ndarray:
+        return self._interp_array(self.root_positions)
+
+    def root_lin_vel(self) -> np.ndarray:
+        return self._interp_array(self.root_lin_velocities)
+
+    def velocity_command(self) -> np.ndarray:
+        if self.velocity_commands is None:
+            quat_wxyz = self.root_quaternion()
+            vel_w = self.root_lin_vel()
+            rot = Rotation.from_quat(np.roll(quat_wxyz, -1))
+            return rot.inv().apply(vel_w).astype(np.float32)
+        # Match Isaac's baked-command lookup: round absolute motion time to the
+        # nearest frame instead of interpolating command steps.
+        frame_idx = int(np.clip(round(self.current_time / self.dt), 0, self.velocity_commands.shape[0] - 1))
+        return self.velocity_commands[frame_idx].copy()
 
     def root_quaternion(self) -> np.ndarray:
         return self._interp_quat(self.root_quaternions)
@@ -275,6 +317,20 @@ class MotionLoader:
         """Return (joint_pos_sdk, root_quat_wxyz) at ``time``."""
         self.update(time)
         return self.joint_pos(), self.root_quaternion()
+
+    def root_lin_vel_at(self, time: float) -> np.ndarray:
+        state = (self.current_time, self.index_0, self.index_1, self.blend)
+        self.update(time)
+        value = self.root_lin_vel()
+        self.current_time, self.index_0, self.index_1, self.blend = state
+        return value
+
+    def root_quaternion_at(self, time: float) -> np.ndarray:
+        state = (self.current_time, self.index_0, self.index_1, self.blend)
+        self.update(time)
+        value = self.root_quaternion()
+        self.current_time, self.index_0, self.index_1, self.blend = state
+        return value
 
 
 @dataclass
@@ -424,6 +480,29 @@ def obs_velocity_commands(env: DeployEnv, params: dict[str, Any]) -> np.ndarray:
 
 OBSERVATION_REGISTRY["keyboard_velocity_commands"] = obs_velocity_commands
 OBSERVATION_REGISTRY["velocity_command"] = obs_velocity_commands
+
+
+@register_observation("base_lin_vel_ref_command")
+def obs_base_lin_vel_ref_command(env: DeployEnv, params: dict[str, Any]) -> np.ndarray:
+    num_frames = int(params.get("num_frames", 10))
+    source = str(params.get("source", "motion"))
+    if source == "keyboard":
+        command = _velocity_command_obs(env)
+        command[2] = float(params.get("lin_vel_z", 0.0))
+        return np.tile(command, num_frames).astype(np.float32)
+    if env.motion is None:
+        raise RuntimeError("base_lin_vel_ref_command requires a MotionLoader")
+    frame_interval_s = float(params.get("frame_interval_s", 0.1))
+    current_time = getattr(env.motion, "current_time", 0.0)
+    frames = []
+    state = (env.motion.current_time, env.motion.index_0, env.motion.index_1, env.motion.blend)
+    for frame_i in range(num_frames):
+        env.motion.update(current_time + frame_i * frame_interval_s)
+        command = env.motion.velocity_command().copy()
+        command[2] = float(params.get("lin_vel_z", command[2]))
+        frames.append(command)
+    env.motion.current_time, env.motion.index_0, env.motion.index_1, env.motion.blend = state
+    return np.asarray(frames, dtype=np.float32).reshape(-1)
 
 
 def _depth_model_and_data(env: "DeployEnv") -> tuple[mujoco.MjModel, mujoco.MjData]:
@@ -579,6 +658,8 @@ def obs_depth(env: DeployEnv, params: dict[str, Any]) -> np.ndarray:
             crop_region=_tuple4_int(params["crop_region"], "observations.depth.crop_region"),
             depth_range=_tuple2_float(params["range"], "observations.depth.range"),
             blur_sigma=float(params.get("blur_sigma", 1.0)),
+            resize_shape=_optional_tuple2_int(params.get("resize_shape"), "observations.depth.resize_shape"),
+            min_distance=float(params.get("min_distance", 0.0)),
         )
 
     raise ValueError(f"Unsupported depth observation type: {depth_type}")
@@ -642,12 +723,19 @@ class JointPositionAction(ActionTerm):
         self._raw[:] = 0.0
         self._processed[:] = self.offset
 
-    def seed_from_sdk_joint_pos(self, joint_pos_sdk: np.ndarray, joint_ids_map: np.ndarray) -> np.ndarray:
-        """Set raw/processed actions so PD targets match SDK joint positions."""
+    def seed_from_sdk_joint_pos(
+        self,
+        joint_pos_sdk: np.ndarray,
+        joint_ids_map: np.ndarray,
+        *,
+        seed_raw: bool = True,
+    ) -> np.ndarray:
+        """Set processed (and optionally raw) actions so PD targets match SDK joint positions."""
         for policy_i, sdk_i in enumerate(joint_ids_map):
             processed = float(joint_pos_sdk[sdk_i])
             self._processed[policy_i] = processed
-            self._raw[policy_i] = (processed - self.offset[policy_i]) / self.scale[policy_i]
+            if seed_raw:
+                self._raw[policy_i] = (processed - self.offset[policy_i]) / self.scale[policy_i]
         return self._raw.copy()
 
 
@@ -827,10 +915,11 @@ class DeployEnv:
         self._seed_actions_from_sdk_joint_pos(joint_pos_sdk)
 
     def _seed_actions_from_sdk_joint_pos(self, joint_pos_sdk: np.ndarray) -> None:
+        seed_raw = bool((self.cfg.get("motion_initializer") or {}).get("seed_last_action", True))
         idx = 0
         for term in self.action_terms:
             if isinstance(term, JointPositionAction):
-                raw = term.seed_from_sdk_joint_pos(joint_pos_sdk, self.joint_ids_map)
+                raw = term.seed_from_sdk_joint_pos(joint_pos_sdk, self.joint_ids_map, seed_raw=seed_raw)
                 self.raw_action[idx : idx + term.action_dim] = raw
             idx += term.action_dim
         for term in self.obs_terms:
@@ -1069,6 +1158,26 @@ def pd_gains_from_deploy(deploy_cfg: dict[str, Any]) -> tuple[np.ndarray, np.nda
     return stiffness, damping
 
 
+def apply_sdk_armature(mj_model: Any, sdk_maps: MujocoSdkMaps, deploy_cfg: dict[str, Any]) -> None:
+    """Overwrite hinge-joint armature with Isaac BeyondMimic values when provided."""
+    raw = deploy_cfg.get("armature")
+    if raw is None:
+        return
+    armature = np.asarray(raw, dtype=np.float64)
+    if armature.shape != (NUM_JOINTS,):
+        raise ValueError(f"armature must have length {NUM_JOINTS}, got {armature.shape}")
+    for sdk_i in range(NUM_JOINTS):
+        mj_model.dof_armature[sdk_maps.qveladr[sdk_i]] = armature[sdk_i]
+
+
+def clear_sdk_joint_passive(mj_model: Any, sdk_maps: MujocoSdkMaps) -> None:
+    """Remove MJCF default hinge damping/frictionloss; Isaac PD kd is applied in ``pd_control``."""
+    for sdk_i in range(NUM_JOINTS):
+        dof = int(sdk_maps.qveladr[sdk_i])
+        mj_model.dof_damping[dof] = 0.0
+        mj_model.dof_frictionloss[dof] = 0.0
+
+
 def build_initial_qpos(
     mj_qpos_template: np.ndarray,
     sdk_maps: MujocoSdkMaps,
@@ -1083,6 +1192,7 @@ def build_initial_qpos(
         qpos[2] = root_height
     if motion is not None:
         joint_pos, root_quat = motion.sample_at(motion_time)
+        qpos[:3] = motion.root_position()
         qpos[3:7] = root_quat
         for sdk_i in range(NUM_JOINTS):
             qpos[sdk_maps.qposadr[sdk_i]] = joint_pos[sdk_i]
@@ -1090,6 +1200,40 @@ def build_initial_qpos(
         for policy_i, sdk_i in enumerate(env.joint_ids_map):
             qpos[sdk_maps.qposadr[sdk_i]] = env.default_joint_pos[policy_i]
     return qpos
+
+
+def build_initial_qvel(
+    mj_qvel_template: np.ndarray,
+    sdk_maps: MujocoSdkMaps,
+    *,
+    motion: MotionLoader | None = None,
+    motion_time: float = 0.0,
+) -> np.ndarray:
+    qvel = mj_qvel_template.copy()
+    if motion is not None:
+        qvel[:3] = motion.root_lin_vel_at(motion_time)
+        qvel[3:6] = _motion_root_ang_vel_b_at(motion, motion_time)
+        joint_vel = motion.joint_vel()
+        for sdk_i in range(NUM_JOINTS):
+            qvel[sdk_maps.qveladr[sdk_i]] = joint_vel[sdk_i]
+    return qvel
+
+
+def _motion_root_ang_vel_b_at(motion: MotionLoader, motion_time: float) -> np.ndarray:
+    t = float(np.clip(motion_time, 0.0, motion.duration))
+    if t + motion.dt <= motion.duration:
+        t0, t1 = t, t + motion.dt
+    else:
+        t0, t1 = max(0.0, t - motion.dt), t
+    dt = t1 - t0
+    if dt <= 0.0:
+        return np.zeros(3, dtype=np.float32)
+
+    quat0 = motion.root_quaternion_at(t0)
+    quat1 = motion.root_quaternion_at(t1)
+    rot0 = Rotation.from_quat(np.roll(quat0, -1))
+    rot1 = Rotation.from_quat(np.roll(quat1, -1))
+    return ((rot0.inv() * rot1).as_rotvec() / dt).astype(np.float32)
 
 
 # ---------------------------------------------------------------------------
@@ -1108,6 +1252,9 @@ def _uses_depth_history_interface(interface_type: str) -> bool:
 
 
 def policy_dir_from_deploy_yaml(deploy_yaml: Path) -> Path:
+    deploy_cfg = load_yaml(deploy_yaml)
+    if isinstance(deploy_cfg, dict) and deploy_cfg.get("policy_dir"):
+        return resolve_policy_dir(resolve_path(str(deploy_cfg["policy_dir"]), DEPLOY_ROOT, base=deploy_yaml.parent))
     if deploy_yaml.parent.name == "params":
         return resolve_policy_dir(deploy_yaml.parent.parent)
     return resolve_policy_dir(deploy_yaml.parent)
@@ -1129,6 +1276,70 @@ def exported_model_dir(policy_dir: Path) -> Path:
     if not model_dir.is_dir():
         raise FileNotFoundError(f"Missing exported model dir: {model_dir}")
     return model_dir
+
+
+class ExportedPolicyNormalizer:
+    def __init__(self, model_dir: Path, interface_cfg: dict[str, Any]):
+        normalizer_path = model_dir / str(interface_cfg.get("normalizer_filename", "policy_normalizer.npz"))
+        data = np.load(normalizer_path, allow_pickle=True)
+        self.mean = data["mean"].reshape(-1).astype(np.float32)
+        self.std = data["std"].reshape(-1).astype(np.float32)
+        self.eps = float(data["eps"]) if "eps" in data and data["eps"] is not None else 1e-8
+        # PHP / vault VisionMLP: EmpiricalNormalizationWithPassthrough exports normalize_mask
+        # (True = apply running stats; False = leave env-normalized depth unchanged).
+        if "normalize_mask" in data.files:
+            self.normalize_mask = np.asarray(data["normalize_mask"], dtype=bool).reshape(-1)
+            if self.normalize_mask.size != self.mean.size:
+                raise ValueError(
+                    f"normalize_mask size {self.normalize_mask.size} does not match mean size {self.mean.size}"
+                )
+        else:
+            self.normalize_mask = None
+        components = interface_cfg.get("normalizer_components")
+        depth_component = str(interface_cfg.get("depth_component", "depth_image"))
+        if not components:
+            raise ValueError("policy_interface.normalizer_components is required for normalized depth_encoder_actor")
+
+        depth_indices: list[int] = []
+        proprio_indices: list[int] = []
+        offset = 0
+        for component in components:
+            name = str(component["name"])
+            size = int(component["size"])
+            target = depth_indices if name == depth_component else proprio_indices
+            target.extend(range(offset, offset + size))
+            offset += size
+        if offset != self.mean.size:
+            raise ValueError(f"Normalizer component size {offset} does not match exported size {self.mean.size}")
+        self.depth_indices = np.asarray(depth_indices, dtype=np.int64)
+        self.proprio_indices = np.asarray(proprio_indices, dtype=np.int64)
+
+    def normalize(self, proprio: np.ndarray, depth_frames: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        proprio_flat = np.asarray(proprio, dtype=np.float32).reshape(-1)
+        depth_flat = np.asarray(depth_frames, dtype=np.float32).reshape(-1)
+        if proprio_flat.size != self.proprio_indices.size:
+            raise ValueError(f"Proprio obs size {proprio_flat.size} != normalizer proprio size {self.proprio_indices.size}")
+        if depth_flat.size != self.depth_indices.size:
+            raise ValueError(f"Depth obs size {depth_flat.size} != normalizer depth size {self.depth_indices.size}")
+
+        if self.normalize_mask is not None:
+            proprio_mask = self.normalize_mask[self.proprio_indices]
+            depth_mask = self.normalize_mask[self.depth_indices]
+            proprio_norm = proprio_flat.copy()
+            if np.any(proprio_mask):
+                idx = self.proprio_indices[proprio_mask]
+                proprio_norm[proprio_mask] = (proprio_flat[proprio_mask] - self.mean[idx]) / (
+                    self.std[idx] + self.eps
+                )
+            depth_norm = depth_flat.copy()
+            if np.any(depth_mask):
+                idx = self.depth_indices[depth_mask]
+                depth_norm[depth_mask] = (depth_flat[depth_mask] - self.mean[idx]) / (self.std[idx] + self.eps)
+            return proprio_norm.astype(np.float32), depth_norm.reshape(depth_frames.shape).astype(np.float32)
+
+        proprio_norm = (proprio_flat - self.mean[self.proprio_indices]) / (self.std[self.proprio_indices] + self.eps)
+        depth_norm = (depth_flat - self.mean[self.depth_indices]) / (self.std[self.depth_indices] + self.eps)
+        return proprio_norm.astype(np.float32), depth_norm.reshape(depth_frames.shape).astype(np.float32)
 
 
 def _deploy_env_cfg(
@@ -1189,6 +1400,21 @@ def _load_mimic_runtime(policy_dir: Path, fsm_config: Path) -> MimicRuntime | No
     return None
 
 
+def _load_config_mimic_runtime(deploy_cfg: dict[str, Any], deploy_yaml: Path) -> MimicRuntime | None:
+    motion_cfg = deploy_cfg.get("motion_initializer") or {}
+    if not motion_cfg.get("enabled", False):
+        return None
+    motion_file = resolve_path(str(motion_cfg["motion_file"]), DEPLOY_ROOT, base=deploy_yaml.parent)
+    loader = MotionLoader(motion_file, float(motion_cfg["fps"]))
+    time_start = float(motion_cfg.get("time_start", 0.0))
+    time_end = float(motion_cfg.get("time_end", loader.duration))
+    print(
+        f"mimic=config  motion={motion_file.name}  duration={loader.duration:.2f}s  "
+        f"window=[{time_start:.2f}, {time_end:.2f}]"
+    )
+    return MimicRuntime(loader=loader, time_start=time_start, time_end=time_end)
+
+
 def _make_key_callback(
     cmd_ranges: dict[str, list[float]],
     velocity_command: np.ndarray,
@@ -1214,7 +1440,6 @@ def _make_key_callback(
             velocity_command[:] = 0.0
         else:
             return
-        print(f"velocity cmd (vx, vy, wz) = {velocity_command}")
 
     return key_callback
 
@@ -1259,6 +1484,8 @@ def _setup_simulation(
 
     sdk_maps = build_mujoco_sdk_maps(mj_model)
     sdk_stiffness, sdk_damping = pd_gains_from_deploy(deploy_cfg)
+    apply_sdk_armature(mj_model, sdk_maps, deploy_cfg)
+    clear_sdk_joint_passive(mj_model, sdk_maps)
     initial_qpos = build_initial_qpos(
         mj_data.qpos,
         sdk_maps,
@@ -1266,8 +1493,16 @@ def _setup_simulation(
         motion=mimic.loader if mimic else None,
         motion_time=mimic.time_start if mimic else 0.0,
     )
+    initial_qvel = build_initial_qvel(
+        mj_data.qvel,
+        sdk_maps,
+        motion=mimic.loader if mimic else None,
+        motion_time=mimic.time_start if mimic else 0.0,
+    )
     mujoco.mj_setState(mj_model, mj_data, initial_qpos, mujoco.mjtState.mjSTATE_QPOS)
+    mj_data.qvel[:] = initial_qvel
     mujoco.mj_forward(mj_model, mj_data)
+    _lift_root_out_of_ground(mj_model, mj_data)
 
     env.sync_robot_from_mujoco(mj_data.qpos, mj_data.qvel, sdk_maps.qposadr, sdk_maps.qveladr)
     if mimic is not None:
@@ -1275,6 +1510,31 @@ def _setup_simulation(
     else:
         env.reset()
     return mj_model, mj_data, env, sdk_maps, sdk_stiffness, sdk_damping
+
+
+def _lift_root_out_of_ground(
+    mj_model: Any,
+    mj_data: Any,
+    *,
+    clearance: float = 0.002,
+) -> float:
+    """Raise the free-joint root so spawned feet are not penetrating the ground.
+
+    Copying motion ``base_pos_w`` 1:1 can still start a few cm in the floor if
+    MuJoCo foot geometry is slightly thicker than Isaac.
+    """
+    lift = 0.0
+    for i in range(int(mj_data.ncon)):
+        dist = float(mj_data.contact[i].dist)
+        if dist < 0.0:
+            lift = max(lift, -dist)
+    if lift <= 0.0:
+        return 0.0
+    lift += float(clearance)
+    mj_data.qpos[2] += lift
+    mujoco.mj_forward(mj_model, mj_data)
+    print(f"lifted root {lift * 100:.1f} cm to clear ground penetration")
+    return lift
 
 
 def _depth_image_native(
@@ -1308,6 +1568,9 @@ def _make_terrain_visual_depth_option() -> mujoco.MjvOption:
 
 
 def _gaussian_blur_3x3(image: np.ndarray, sigma: float) -> np.ndarray:
+    if sigma <= 0.0:
+        return image.astype(np.float32, copy=False)
+
     try:
         import cv2  # type: ignore[import-not-found]
 
@@ -1338,6 +1601,19 @@ def _optional_tuple2_float(value: list[float] | None, name: str) -> tuple[float,
     if value is None:
         return None
     return _tuple2_float(value, name)
+
+
+def _tuple2_int(value: list[int], name: str) -> tuple[int, int]:
+    vals = tuple(int(v) for v in value)
+    if len(vals) != 2:
+        raise ValueError(f"{name} must have 2 values, got {len(vals)}")
+    return vals
+
+
+def _optional_tuple2_int(value: list[int] | None, name: str) -> tuple[int, int] | None:
+    if value is None:
+        return None
+    return _tuple2_int(value, name)
 
 
 def _tuple4_int(value: list[int], name: str) -> tuple[int, int, int, int]:
@@ -1380,6 +1656,20 @@ def _inferred_depth_xml_path(xml_path: Path) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+def _resize_depth_image(depth: np.ndarray, resize_shape: tuple[int, int] | None) -> np.ndarray:
+    if resize_shape is None or tuple(depth.shape[:2]) == resize_shape:
+        return depth
+    try:
+        import cv2  # type: ignore[import-not-found]
+
+        return cv2.resize(depth, (resize_shape[1], resize_shape[0]), interpolation=cv2.INTER_AREA).astype(np.float32)
+    except ImportError:
+        from scipy.ndimage import zoom
+
+        zoom_factors = (resize_shape[0] / depth.shape[0], resize_shape[1] / depth.shape[1])
+        return zoom(depth, zoom_factors, order=1).astype(np.float32)
+
+
 def _cropped_normalized_depth_image(
     renderer: mujoco.Renderer,
     mj_data: mujoco.MjData,
@@ -1388,27 +1678,35 @@ def _cropped_normalized_depth_image(
     crop_region: tuple[int, int, int, int],
     depth_range: tuple[float, float],
     blur_sigma: float,
+    resize_shape: tuple[int, int] | None = None,
     scene_option: mujoco.MjvOption | None = None,
+    min_distance: float = 0.0,
 ) -> np.ndarray:
     if scene_option is None:
         scene_option = _make_terrain_visual_depth_option()
     renderer.update_scene(mj_data, camera=camera_name, scene_option=scene_option)
     depth_m = renderer.render().astype(np.float32)
     depth_m = np.where(np.isfinite(depth_m), depth_m, depth_range[1])
+    # Isaac camera.min_distance + depth_clipping_behavior=max: near hits become far.
+    if min_distance > 0.0:
+        depth_m = np.where(depth_m < min_distance, depth_range[1], depth_m)
     up, down, left, right = crop_region
     depth_m = depth_m[up : depth_m.shape[0] - down, left : depth_m.shape[1] - right]
+    depth_m = _resize_depth_image(depth_m, resize_shape)
     depth_m = _gaussian_blur_3x3(depth_m, blur_sigma)
     min_depth, max_depth = depth_range
     depth_norm = (np.clip(depth_m, min_depth, max_depth) - min_depth) / (max_depth - min_depth)
     return depth_norm.astype(np.float32)
 
 
-def _load_depth_encoder_actor_onnx(model_dir: Path) -> tuple[Any, Any]:
+def _load_depth_encoder_actor_onnx(model_dir: Path, interface_cfg: dict[str, Any]) -> tuple[Any, Any]:
     import onnxruntime as ort
 
     providers = ort.get_available_providers()
-    encoder = ort.InferenceSession(str(model_dir / "0-depth_encoder.onnx"), providers=providers)
-    actor = ort.InferenceSession(str(model_dir / "actor.onnx"), providers=providers)
+    encoder_filename = str(interface_cfg.get("encoder_filename", "0-depth_encoder.onnx"))
+    actor_filename = str(interface_cfg.get("actor_filename", "actor.onnx"))
+    encoder = ort.InferenceSession(str(model_dir / encoder_filename), providers=providers)
+    actor = ort.InferenceSession(str(model_dir / actor_filename), providers=providers)
     return encoder, actor
 
 
@@ -1507,25 +1805,40 @@ def _make_policy_runtime(
         return PolicyRuntime(act=act_depth_recurrent)
 
     if interface_type == "depth_encoder_actor":
+        interface_cfg = deploy_cfg.get("policy_interface") or {}
         depth_cfg = deploy_cfg["observations"]["depth"]
         render_h = int(depth_cfg["render_height"])
         render_w = int(depth_cfg["render_width"])
         crop_region = _tuple4_int(depth_cfg["crop_region"], "observations.depth.crop_region")
-        cropped_shape = (render_h - crop_region[0] - crop_region[1], render_w - crop_region[2] - crop_region[3])
+        cropped_shape = _optional_tuple2_int(depth_cfg.get("resize_shape"), "observations.depth.resize_shape") or (
+            render_h - crop_region[0] - crop_region[1],
+            render_w - crop_region[2] - crop_region[3],
+        )
         depth_hist = DepthHistoryBuffer(int(depth_cfg["history_length"]), cropped_shape)
         depth_num_frames = int(depth_cfg.get("num_output_frames", 8))
         depth_skip_frames = int(depth_cfg.get("skip_frames", 5))
         depth_delay_frames = int(depth_cfg.get("delay_frames", 0))
         if policy_dir is None:
             raise RuntimeError("depth_encoder_actor export directory requires policy_dir")
-        encoder, actor = _load_depth_encoder_actor_onnx(exported_model_dir(policy_dir))
+        model_dir = exported_model_dir(policy_dir)
+        encoder, actor = _load_depth_encoder_actor_onnx(model_dir, interface_cfg)
+        normalizer = (
+            ExportedPolicyNormalizer(model_dir, interface_cfg)
+            if bool(interface_cfg.get("use_policy_normalizer", False))
+            else None
+        )
 
         def act_depth_encoder_actor() -> np.ndarray:
             depth_frame = env.compute_sensor("depth")
             depth_hist.append(depth_frame)
             depth_frames = depth_hist.delayed_frames(depth_num_frames, depth_skip_frames, depth_delay_frames)
             _show_depth_preview(depth_frame, _DEPTH_PREVIEW_SCALE)
-            return _run_depth_encoder_actor_onnx(encoder, actor, env.compute_obs()["obs"], depth_frames)
+            proprio = env.compute_obs()["obs"]
+            if normalizer is not None:
+                proprio, depth_frames_norm = normalizer.normalize(proprio, depth_frames)
+            else:
+                depth_frames_norm = depth_frames
+            return _run_depth_encoder_actor_onnx(encoder, actor, proprio, depth_frames_norm)
 
         return PolicyRuntime(act=act_depth_encoder_actor)
 
@@ -1538,16 +1851,17 @@ def run_deploy(config_path: str, args: Any) -> None:
     interface_cfg = deploy_cfg.get("policy_interface") or {}
     interface_type = str(interface_cfg.get("type", "deploy_env"))
     env_cfg = _deploy_env_cfg_for_interface(deploy_cfg, interface_type)
-    xml_arg = getattr(args, "xml_path", None) or DEFAULT_XML
-    xml_path = resolve_path(xml_arg, DEPLOY_ROOT)
-    sim_dt = float(getattr(args, "simulation_dt", 0.001))
+    xml_arg = getattr(args, "xml_path", None) or deploy_cfg.get("xml_path") or DEFAULT_XML
+    xml_path = resolve_path(str(xml_arg), DEPLOY_ROOT, base=deploy_yaml.parent)
+    sim_dt = float(getattr(args, "simulation_dt", None) or deploy_cfg.get("simulation_dt", 0.001))
     decimation = max(1, round(float(env_cfg["step_dt"]) / sim_dt))
-    duration = float(getattr(args, "simulation_duration", 600.0))
-    mimic = (
-        _load_mimic_runtime(policy_dir, resolve_path(getattr(args, "fsm_config", str(DEFAULT_FSM_CONFIG)), DEPLOY_ROOT))
-        if interface_type == "deploy_env"
-        else None
-    )
+    duration = float(getattr(args, "simulation_duration", None) or deploy_cfg.get("simulation_duration", 600.0))
+    mimic = _load_config_mimic_runtime(deploy_cfg, deploy_yaml)
+    if mimic is None and interface_type == "deploy_env":
+        mimic = _load_mimic_runtime(
+            policy_dir,
+            resolve_path(getattr(args, "fsm_config", str(DEFAULT_FSM_CONFIG)), DEPLOY_ROOT),
+        )
 
     print(f"config={deploy_yaml}  policy_dir={policy_dir}")
     print(f"control: sim_dt={sim_dt}  step_dt={env_cfg['step_dt']}  decimation={decimation}")
